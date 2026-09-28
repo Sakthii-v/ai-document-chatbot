@@ -24,8 +24,3 @@ services:
         value: "700"
       - key: CHUNK_OVERLAP
         value: "120"
-
-  - type: static
-    name: ai-chatbot-frontend
-    buildCommand: npm --prefix frontend ci && npm --prefix frontend run build
-    staticPublishPath: frontend/dist
