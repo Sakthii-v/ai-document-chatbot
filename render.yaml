@@ -4,7 +4,6 @@ services:
     env: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    plan: free
     healthCheckPath: /api/health
     envVars:
       - key: GROQ_API_KEY
