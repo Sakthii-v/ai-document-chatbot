@@ -1,16 +1,14 @@
 services:
-  # ─────────────────────────────────────────────────────────────────────────
-  # Backend: FastAPI on Render Free Web Service (Docker)
-  # ─────────────────────────────────────────────────────────────────────────
   - type: web
     name: ai-chatbot-backend
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     plan: free
+    healthCheckPath: /api/health
     envVars:
       - key: GROQ_API_KEY
-        sync: false        # Set this manually in Render dashboard (never commit!)
+        sync: false
       - key: GROQ_MODEL
         value: llama-3.1-8b-instant
       - key: DATABASE_URL
@@ -31,11 +29,7 @@ services:
         value: AI Document Chatbot
       - key: API_V1_STR
         value: /api
-    healthCheckPath: /api/health
 
-  # ─────────────────────────────────────────────────────────────────────────
-  # Frontend: React/Vite as Render Static Site (FREE, no Docker, no cold start)
-  # ─────────────────────────────────────────────────────────────────────────
   - type: web
     name: ai-chatbot-frontend
     runtime: static
@@ -44,13 +38,7 @@ services:
     plan: free
     envVars:
       - key: VITE_API_BASE_URL
-        # After backend deploys, update this to your actual backend URL, e.g.:
-        # https://ai-chatbot-backend.onrender.com/api
         sync: false
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: no-cache
     routes:
       - type: rewrite
         source: /*
