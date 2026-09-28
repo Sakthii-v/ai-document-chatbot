@@ -1,0 +1,33 @@
+{
+  "folders": [
+    {
+      "name": "📁 AI Document Chatbot (Root)",
+      "path": "."
+    },
+    {
+      "name": "🐍 Backend (FastAPI)",
+      "path": "backend"
+    },
+    {
+      "name": "⚛️ Frontend (React + Vite)",
+      "path": "frontend"
+    }
+  ],
+  "settings": {
+    "python.defaultInterpreterPath": "${workspaceFolder:🐍 Backend (FastAPI)}/venv/Scripts/python.exe"
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-python.python",
+      "ms-python.debugpy",
+      "ms-python.black-formatter",
+      "charliermarsh.ruff",
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode",
+      "bradlc.vscode-tailwindcss",
+      "formulahendry.auto-rename-tag",
+      "PKief.material-icon-theme",
+      "GitHub.copilot"
+    ]
+  }
+}

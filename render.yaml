@@ -1,0 +1,45 @@
+services:
+  # ── Backend: FastAPI ──────────────────────────────────────────────────────
+  - type: web
+    name: ai-chatbot-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false          # You'll set this in the Render dashboard
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: DATABASE_URL
+        value: sqlite:///./app.db
+      - key: CHROMA_PATH
+        value: ./chroma_data
+      - key: UPLOAD_DIR
+        value: ./uploads
+      - key: EMBEDDING_MODEL
+        value: all-MiniLM-L6-v2
+      - key: TOP_K
+        value: "5"
+      - key: CHUNK_SIZE
+        value: "700"
+      - key: CHUNK_OVERLAP
+        value: "120"
+      - key: PROJECT_NAME
+        value: AI Document Chatbot
+      - key: API_V1_STR
+        value: /api
+    healthCheckPath: /api/health
+
+  # ── Frontend: React (Vite) ────────────────────────────────────────────────
+  - type: web
+    name: ai-chatbot-frontend
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    plan: free
+    buildArgs:
+      - key: VITE_API_BASE_URL
+        # IMPORTANT: After the backend is deployed, paste its URL here
+        # e.g. https://ai-chatbot-backend.onrender.com/api
+        value: https://ai-chatbot-backend.onrender.com/api

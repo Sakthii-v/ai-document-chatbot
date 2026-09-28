@@ -1,0 +1,40 @@
+# Python & Byte-code
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.pytest_cache/
+
+# Databases & Uploads
+*.db
+*.sqlite3
+backend/app.db
+backend/uploads/
+backend/chroma_data/
+uploads/
+chroma_data/
+app.db
+
+# Node & Frontend
+node_modules/
+dist/
+.dist/
+*.local
+
+# Environment variables (NEVER commit these)
+.env
+.env.local
+.env.production
+
+# Nginx SSL certs
+nginx/certs/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
