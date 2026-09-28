@@ -21,7 +21,7 @@ def get_health(db: Session = Depends(get_db)):
     vector_store = VectorStore()
     chroma_status = "ok" if vector_store.is_healthy() else "error"
 
-    # 3. OpenAI LLM check
+    # 3. Groq LLM check
     llm_service = LLMService()
     llm_ok = llm_service.check_health()
     llm_status = "ok" if llm_ok else "unavailable"
@@ -33,6 +33,6 @@ def get_health(db: Session = Depends(get_db)):
         "services": {
             "database": db_status,
             "chromadb": chroma_status,
-            "openai": llm_status
+            "groq": llm_status
         }
     }

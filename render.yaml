@@ -1,5 +1,7 @@
 services:
-  # ── Backend: FastAPI ──────────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────
+  # Backend: FastAPI on Render Free Web Service (Docker)
+  # ─────────────────────────────────────────────────────────────────────────
   - type: web
     name: ai-chatbot-backend
     runtime: docker
@@ -7,10 +9,10 @@ services:
     dockerContext: ./backend
     plan: free
     envVars:
-      - key: OPENAI_API_KEY
-        sync: false          # You'll set this in the Render dashboard
-      - key: OPENAI_MODEL
-        value: gpt-4o-mini
+      - key: GROQ_API_KEY
+        sync: false        # Set this manually in Render dashboard (never commit!)
+      - key: GROQ_MODEL
+        value: llama-3.1-8b-instant
       - key: DATABASE_URL
         value: sqlite:///./app.db
       - key: CHROMA_PATH
@@ -31,15 +33,25 @@ services:
         value: /api
     healthCheckPath: /api/health
 
-  # ── Frontend: React (Vite) ────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────
+  # Frontend: React/Vite as Render Static Site (FREE, no Docker, no cold start)
+  # ─────────────────────────────────────────────────────────────────────────
   - type: web
     name: ai-chatbot-frontend
-    runtime: docker
-    dockerfilePath: ./frontend/Dockerfile
-    dockerContext: ./frontend
+    runtime: static
+    buildCommand: npm --prefix frontend ci && npm --prefix frontend run build
+    staticPublishPath: ./frontend/dist
     plan: free
-    buildArgs:
+    envVars:
       - key: VITE_API_BASE_URL
-        # IMPORTANT: After the backend is deployed, paste its URL here
-        # e.g. https://ai-chatbot-backend.onrender.com/api
-        value: https://ai-chatbot-backend.onrender.com/api
+        # After backend deploys, update this to your actual backend URL, e.g.:
+        # https://ai-chatbot-backend.onrender.com/api
+        sync: false
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
