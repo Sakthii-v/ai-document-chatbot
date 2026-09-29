@@ -33,6 +33,6 @@ def get_health(db: Session = Depends(get_db)):
         "services": {
             "database": db_status,
             "chromadb": chroma_status,
-            "groq": llm_status
+            "gemini": llm_status
         }
     }

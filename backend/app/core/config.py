@@ -6,9 +6,9 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "AI Document Chatbot"
     API_V1_STR: str = "/api"
 
-    # Groq API settings (free tier — https://console.groq.com)
-    GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "llama-3.1-8b-instant"
+    # Google Gemini API settings (free tier — https://aistudio.google.com/app/apikey)
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-1.5-flash"
 
     # Database settings
     DATABASE_URL: str = "sqlite:///./app.db"
