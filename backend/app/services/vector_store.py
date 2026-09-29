@@ -1,6 +1,5 @@
 from typing import List, Dict, Any
 import chromadb
-from chromadb.config import Settings as ChromaSettings
 from app.core.config import settings
 from app.core.logging_config import logger
 
@@ -12,10 +11,20 @@ class VectorStore:
         if cls._instance is None:
             cls._instance = super(VectorStore, cls).__new__(cls)
             logger.info(f"Initializing persistent ChromaDB client at {settings.CHROMA_PATH}")
-            cls._instance.client = chromadb.PersistentClient(
-                path=settings.CHROMA_PATH,
-                settings=ChromaSettings(allow_reset=True, anonymized_telemetry=False)
-            )
+            try:
+                # chromadb >= 0.5 uses chromadb.PersistentClient directly
+                cls._instance.client = chromadb.PersistentClient(
+                    path=settings.CHROMA_PATH,
+                )
+            except Exception:
+                # Fallback: older API
+                cls._instance.client = chromadb.Client(
+                    chromadb.config.Settings(
+                        chroma_db_impl="duckdb+parquet",
+                        persist_directory=settings.CHROMA_PATH,
+                        anonymized_telemetry=False
+                    )
+                )
             cls._instance.collection = cls._instance.client.get_or_create_collection(
                 name="document_chunks",
                 metadata={"hnsw:space": "cosine"}
@@ -35,10 +44,15 @@ class VectorStore:
         documents = [chunk["text"] for chunk in chunks]
         metadatas = [chunk["metadata"] for chunk in chunks]
 
-        # Ensure page metadata is integer or string (ChromaDB requirement)
+        # Ensure page metadata is integer (ChromaDB requirement — no None values)
         for meta in metadatas:
             if meta.get("page") is None:
                 meta["page"] = 1
+            # Ensure all metadata values are primitive types
+            meta["document_id"] = int(meta.get("document_id", 0))
+            meta["chunk_index"] = int(meta.get("chunk_index", 0))
+            meta["page"] = int(meta.get("page", 1))
+            meta["filename"] = str(meta.get("filename", "unknown"))
 
         self.collection.add(
             ids=ids,
@@ -53,13 +67,20 @@ class VectorStore:
         Perform similarity search using query embedding vector.
         Returns list of matched chunks with metadata and cosine similarity score.
         """
-        if query_embedding is None or len(query_embedding) == 0:
+        if not query_embedding:
             return []
 
+        # Guard: ChromaDB throws if n_results > collection count
+        count = self.collection.count()
+        if count == 0:
+            logger.info("ChromaDB collection is empty — no results to return.")
+            return []
+
+        n = min(top_k, count)
 
         results = self.collection.query(
             query_embeddings=[query_embedding],
-            n_results=top_k,
+            n_results=n,
             include=["documents", "metadatas", "distances"]
         )
 
