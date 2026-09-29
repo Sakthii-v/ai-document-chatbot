@@ -3,7 +3,7 @@ services:
     name: ai-chatbot-backend
     env: python
     rootDir: backend
-    buildCommand: pip install -r requirements.txt && python preload_model.py
+    buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     envVars:
@@ -25,9 +25,3 @@ services:
         value: "700"
       - key: CHUNK_OVERLAP
         value: "120"
-      - key: SENTENCE_TRANSFORMERS_HOME
-        value: /opt/render/project/.cache/sentence-transformers
-      - key: TRANSFORMERS_CACHE
-        value: /opt/render/project/.cache/transformers
-      - key: HF_HOME
-        value: /opt/render/project/.cache/huggingface

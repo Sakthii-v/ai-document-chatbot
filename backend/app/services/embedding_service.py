@@ -1,30 +1,28 @@
 from typing import List
 import chromadb.utils.embedding_functions as ef
-from sentence_transformers import SentenceTransformer
-from app.core.config import settings
 from app.core.logging_config import logger
 
 
 class EmbeddingService:
+    """
+    Uses ChromaDB's built-in ONNX DefaultEmbeddingFunction (all-MiniLM-L6-v2).
+    No PyTorch required — runs in ~80MB RAM, fits Render free tier (512MB).
+    """
     _instance = None
     _embed_func = None
-    _is_chroma_default = False
 
     def __init__(self):
         if EmbeddingService._embed_func is None:
-            model_name = settings.EMBEDDING_MODEL
-            logger.info(f"Initializing embedding service with model '{model_name}'...")
+            logger.info("Initializing ChromaDB ONNX DefaultEmbeddingFunction (all-MiniLM-L6-v2)...")
             try:
-                # Try loading SentenceTransformer first
-                model = SentenceTransformer(model_name)
-                EmbeddingService._embed_func = lambda texts: model.encode(texts, convert_to_numpy=True).tolist()
-                logger.info("SentenceTransformer initialized successfully.")
-            except Exception as e:
-                logger.warning(f"SentenceTransformer load failed ({e}), using ChromaDB ONNX DefaultEmbeddingFunction...")
                 default_fn = ef.DefaultEmbeddingFunction()
-                EmbeddingService._embed_func = lambda texts: default_fn(texts)
-                EmbeddingService._is_chroma_default = True
-                logger.info("ChromaDB ONNX DefaultEmbeddingFunction initialized successfully.")
+                # Warm up to trigger ONNX model download now, not on first request
+                default_fn(["warmup"])
+                EmbeddingService._embed_func = default_fn
+                logger.info("ChromaDB ONNX embedding function ready.")
+            except Exception as e:
+                logger.error(f"Failed to initialize embedding function: {e}")
+                raise
 
         self.embed_func = EmbeddingService._embed_func
 
@@ -33,10 +31,10 @@ class EmbeddingService:
         if not text:
             return []
         res = self.embed_func([text])
-        return res[0] if res else []
+        return list(res[0]) if res else []
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """Generate embedding vectors for a batch of text chunks."""
         if not texts:
             return []
-        return self.embed_func(texts)
+        return [list(v) for v in self.embed_func(texts)]
