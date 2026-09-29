@@ -34,6 +34,7 @@ class DocumentService:
         """
         Process uploaded file: check duplicate SHA-256 hash, extract text,
         chunk, generate embeddings, store in ChromaDB and SQLite DB.
+        All DB writes are atomic — the record is only committed after full success.
         """
         logger.info(f"Processing upload request for file='{file.filename}'")
 
@@ -51,8 +52,11 @@ class DocumentService:
         file_hash = compute_file_hash(content)
         logger.info(f"File '{file.filename}' SHA-256 hash: {file_hash}")
 
-        # 2. Check duplicate in SQLite DB
-        existing_doc = self.db.query(Document).filter(Document.file_hash == file_hash).first()
+        # 2. Check duplicate — only return existing if it was FULLY processed (not stuck)
+        existing_doc = self.db.query(Document).filter(
+            Document.file_hash == file_hash,
+            Document.status == "processed"
+        ).first()
         if existing_doc:
             logger.info(f"Duplicate document detected! document_id={existing_doc.id}, hash={file_hash}")
             return {
@@ -64,17 +68,43 @@ class DocumentService:
                 "is_duplicate": True
             }
 
+        # 2b. Clean up any stale 'processing' record for this hash (from a previous failed attempt)
+        stale = self.db.query(Document).filter(
+            Document.file_hash == file_hash,
+            Document.status == "processing"
+        ).first()
+        if stale:
+            logger.warning(f"Found stale processing record id={stale.id} for hash={file_hash}. Cleaning up.")
+            self.db.delete(stale)
+            self.db.commit()
+
         # 3. Save file physically to uploads directory
         safe_filename = generate_safe_filename(file.filename)
         saved_path = os.path.join(settings.UPLOAD_DIR, safe_filename)
         with open(saved_path, "wb") as f:
             f.write(content)
 
+        db_doc = None
         try:
             # 4. Extract text
             extracted_pages = self.extraction_service.extract_text(saved_path, ext)
 
-            # 5. Create draft DB record to get document ID
+            # 5. Chunk text
+            # Use a temporary ID=-1 for chunk IDs; we replace after getting real DB id
+            temp_chunks = self.chunking_service.chunk_extracted_pages(
+                extracted_pages=extracted_pages,
+                document_id=-1,
+                filename=file.filename
+            )
+
+            if not temp_chunks:
+                raise AppException("NO_CHUNKS", "Document produced 0 chunks after extraction — it may be empty or image-only.")
+
+            # 6. Generate embeddings
+            texts = [c["text"] for c in temp_chunks]
+            embeddings = self.embedding_service.embed_documents(texts)
+
+            # 7. Only now create the DB record (after all heavy work succeeds)
             db_doc = Document(
                 filename=file.filename,
                 file_hash=file_hash,
@@ -87,27 +117,21 @@ class DocumentService:
             self.db.commit()
             self.db.refresh(db_doc)
 
-            # 6. Chunk text
-            chunks = self.chunking_service.chunk_extracted_pages(
-                extracted_pages=extracted_pages,
-                document_id=db_doc.id,
-                filename=file.filename
-            )
+            # 8. Fix chunk IDs now that we have the real document_id
+            for i, chunk in enumerate(temp_chunks):
+                chunk["id"] = f"document_{db_doc.id}_chunk_{i}"
+                chunk["metadata"]["document_id"] = db_doc.id
 
-            # 7. Generate embeddings
-            texts = [c["text"] for c in chunks]
-            embeddings = self.embedding_service.embed_documents(texts)
+            # 9. Store in ChromaDB
+            self.vector_store.add_chunks(temp_chunks, embeddings)
 
-            # 8. Store in ChromaDB
-            self.vector_store.add_chunks(chunks, embeddings)
-
-            # 9. Update DB record status
+            # 10. Mark as fully processed (single final commit)
             db_doc.status = "processed"
-            db_doc.chunk_count = len(chunks)
+            db_doc.chunk_count = len(temp_chunks)
             self.db.commit()
             self.db.refresh(db_doc)
 
-            logger.info(f"Document processed successfully. document_id={db_doc.id}, chunks={len(chunks)}")
+            logger.info(f"Document processed successfully. document_id={db_doc.id}, chunks={len(temp_chunks)}")
 
             return {
                 "id": db_doc.id,
@@ -119,10 +143,18 @@ class DocumentService:
             }
 
         except Exception as e:
-            # Cleanup saved file and DB entry if processing failed
+            # Cleanup: remove saved file
             if os.path.exists(saved_path):
                 os.remove(saved_path)
-            self.db.rollback()
+            # Cleanup: remove DB record if it was partially created
+            if db_doc is not None:
+                try:
+                    self.db.delete(db_doc)
+                    self.db.commit()
+                except Exception:
+                    self.db.rollback()
+            else:
+                self.db.rollback()
             logger.error(f"Error during document processing: {e}")
             raise e
 
