@@ -31,10 +31,12 @@ class EmbeddingService:
         if not text:
             return []
         res = self.embed_func([text])
-        return list(res[0]) if res else []
+        # Convert np.float32 → native Python float (ChromaDB requirement)
+        return [float(x) for x in res[0]] if res else []
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """Generate embedding vectors for a batch of text chunks."""
         if not texts:
             return []
-        return [list(v) for v in self.embed_func(texts)]
+        # Convert np.float32 → native Python float (ChromaDB requirement)
+        return [[float(x) for x in v] for v in self.embed_func(texts)]
