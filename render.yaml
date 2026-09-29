@@ -31,3 +31,20 @@ services:
         value: "120"
       - key: PYTHON_VERSION
         value: "3.11.9"
+
+  - type: static
+    name: ai-document-chatbot-v5g1
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://ai-chatbot-backend-96p2.onrender.com/api
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

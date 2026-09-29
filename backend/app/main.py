@@ -35,7 +35,11 @@ app = FastAPI(
 # CORS configuration for React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows local dev from Vite (e.g. http://localhost:5173)
+    allow_origins=[
+        "http://localhost:5173",          # Local Vite dev server
+        "http://localhost:4173",          # Local Vite preview
+        "https://ai-document-chatbot-v5g1.onrender.com",  # Production frontend
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
